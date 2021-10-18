@@ -36,10 +36,13 @@
     "start": "rescripts start",
     "build": "rescripts build",
     "test": "rescripts test",
-    "electron-dev": "concurrently \"BROWSER=none yarn start\" \"wait-on http://localhost:3000 && electron .\"",
+    "dev": "concurrently \"yarn start\" \"wait-on http://localhost:3000 && electron .\"",
     "postinstall": "electron-builder install-app-deps",
     "pre-electron-pack": "yarn build",
-    "electron-pack": "electron-builder build --dir --windows --mac --linux"
+    "electron-pack:all": "electron-builder build --dir --windows --mac --linux",
+    "electron-pack:win": "electron-builder build --dir --windows",
+    "electron-pack:mac": "electron-builder build --dir --mac",
+    "electron-pack:linux": "electron-builder build --dir --linux"
   },
   "eslintConfig": {
     "extends": "react-app"
@@ -60,6 +63,7 @@
     "@reach/accordion": "^0.8.0",
     "date-fns": "^2.9.0",
     "electron-is-dev": "^1.1.0",
+    "electron-positioner": "^4.1.0",
     "electron-store": "^5.1.0"
   },
   "devDependencies": {

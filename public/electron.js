@@ -5,10 +5,15 @@ const {
   dialog,
   powerMonitor,
   shell,
-  Notification
+  Tray,
+    systemPreferences,
+    nativeImage,
+  Notification, screen
 } = require("electron");
 const Store = require("electron-store");
 const isDev = require("electron-is-dev");
+const Positioner = require('electron-positioner');
+let winBlur = false;
 
 const path = require("path");
 const { version } = require("../package.json");
@@ -28,17 +33,33 @@ let mainWindow = {
 let willQuit = false;
 
 function createWindow() {
+  const { screen } = require('electron')
+
+  // Create a window that fills the screen's available work area.
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const { width, height } = primaryDisplay.workAreaSize;
+
+  const color = systemPreferences.getAccentColor();
+  console.log(color, "color");
+
   mainWindow = new BrowserWindow({
-    width: 800,
-    minWidth: 320,
-    height: 600,
-    fullscreenable: true,
-    backgroundColor: "#403F4D",
+    width: 400,
+    minWidth: 400,
+    height: height,
+    frame: false,
+    show: false,
+    skipTaskbar: true,
+    titleBarStyle: 'hidden',
+    transparent: true,
+    backgroundColor: `#${color}`,
     icon: path.join(__dirname, "assets/png/128x128.png"),
     webPreferences: {
       nodeIntegration: true
     }
   });
+
+  let positioner = new Positioner(mainWindow);
+  positioner.move('topRight');
 
   mainWindow.loadURL(
     isDev
@@ -47,162 +68,36 @@ function createWindow() {
   );
 }
 
-function menuSetup() {
-  const menuTemplate = [
-    {
-      label: "todometer",
-      submenu: [
-        {
-          label: "About",
-          click: () => {
-            dialog.showMessageBox(mainWindow, {
-              type: "info",
-              title: "About",
-              message: "todometer is built by @cassidoo",
-              detail:
-                "You can find her on GitHub and Twitter as @cassidoo, or on her website cassidoo.co.",
-              icon: path.join(__dirname, "assets/png/64x64.png")
-            });
-          }
-        },
-        {
-          label: "Contribute (v" + version + ")",
-          click: () => {
-            shell.openExternal("https://github.com/cassidoo/todometer");
-          }
-        },
-        {
-          type: "separator"
-        },
-        // {
-        //   /* For debugging */
-        //   label: "Dev tools",
-        //   click: () => {
-        //     mainWindow.webContents.openDevTools();
-        //   }
-        // },
-        {
-          label: "Quit",
-          accelerator: "CommandOrControl+Q",
-          click: () => {
-            app.quit();
-          }
-        }
-      ]
-    },
-    {
-      label: "Edit",
-      submenu: [
-        { role: "undo" },
-        { role: "redo" },
-        { role: "cut" },
-        { role: "copy" },
-        { role: "paste" },
-        { role: "delete" },
-        { role: "selectall" }
-      ]
-    },
-    {
-      label: "View",
-      submenu: [
-        // {
-        //   label: "Light mode",
-        //   type: "checkbox",
-        //   checked: false,
-        //   click: e => {
-        //     mainWindow.isLightMode = e.checked;
-        //   }
-        // },
-        {
-          type: "separator"
-        },
-        { role: "reload" },
-        { role: "togglefullscreen" },
-        { role: "minimize" },
-        { role: "close" }
-      ]
-    },
-    {
-      label: "Notifications",
-      submenu: [
-        {
-          label: "Enable reset notification",
-          type: "checkbox",
-          checked: store.get("reset"),
-          click: e => {
-            global.notificationSettings.resetNotification = e.checked;
-            store.set("reset", e.checked);
-          }
-        },
-        {
-          label: "Reminder notifications",
-          submenu: [
-            {
-              label: "Never",
-              type: "radio",
-              checked: store.get("reminder") === "never",
-              click: e => {
-                if (e.checked) {
-                  global.notificationSettings.reminderNotification = "never";
-                  store.set("reminder", "never");
-                }
-              }
-            },
-            {
-              label: "Every 15 minutes",
-              type: "radio",
-              checked: store.get("reminder") === "quarterhour",
-              click: e => {
-                if (e.checked) {
-                  global.notificationSettings.reminderNotification = "quarterhour";
-                  store.set("reminder", "quarterhour");
-                }
-              }
-            },
-            {
-              label: "Every 30 minutes",
-              type: "radio",
-              checked: store.get("reminder") === "halfhour",
-              click: e => {
-                if (e.checked) {
-                  global.notificationSettings.reminderNotification = "halfhour";
-                  store.set("reminder", "halfhour");
-                }
-              }
-            },
-            {
-              label: "Every hour",
-              type: "radio",
-              checked: store.get("reminder") === "hour",
-              click: e => {
-                if (e.checked) {
-                  mainWindow.reminderNotification = "hour";
-                  store.set("reminder", "hour");
-                }
-              }
-            }
-          ]
-        },
-        {
-          label: "Show example notification",
-          click: e => {
-            let exNotification = new Notification({
-              title: "todometer reminder!",
-              body: "Here's an example todometer notification!"
-            });
-            exNotification.show();
-          }
-        }
-      ]
+// Create a menu when clicked ity will show window, or it would hide the window when click outside
+function makeTrayMenu(){
+  const image = nativeImage.createFromPath(isDev?`${path.join(__dirname, "./logo128.png")}`:
+      `${path.join(__dirname, "../build/logo128.png")}`
+  );
+  let tray  = new Tray(image.resize({ width: 16, height: 16 }));
+  tray.on('click', function(e){
+    if (!mainWindow.isVisible() & winBlur == false) {
+      mainWindow.show()
+    }else {
+      mainWindow.hide()
     }
-  ];
-  const menu = Menu.buildFromTemplate(menuTemplate);
-  Menu.setApplicationMenu(menu);
+  });
 }
+
+app.on('browser-window-blur', (event, win) => {
+    winBlur = true;
+    mainWindow.hide();
+    const intID = setInterval(()=>{
+        winBlur = false;
+        clearInterval(intID);
+    }, 500)
+})
+
 
 app.on("ready", () => {
   createWindow();
-  menuSetup();
+  makeTrayMenu();
+  // dont need menu so commenting out
+  //menuSetup();
 
   powerMonitor.on("resume", () => {
     mainWindow.reload();
